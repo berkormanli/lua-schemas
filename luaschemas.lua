@@ -201,10 +201,12 @@ setmetatable(l.number, {
 
             multipleOf = function(self, modulus, errMsg)
                 self._multipleOf = errMsg or "Must be a multiple of "..modulus
+                return self
             end,
 
             finite = function(self, errMsg)
                 self._finite = errMsg or "Must be between math.huge and -math.huge"
+                return self
             end,
 
             parse = function(self, argToBeTested)
