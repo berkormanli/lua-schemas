@@ -254,3 +254,89 @@ local numberSchemaGt = l.number():finite()
 --numberSchemaMin:parse(3)
 --numberSchemaGte:parse(2)
 numberSchemaGt:parse(math.huge)
+
+l.Object = {}
+l.Object.index = {}
+setmetatable(l.Object, {
+    __call = function(instance, fields, errMsgs)
+        instance.__type = "object"
+        instance.__fields = fields
+        local obj = {
+            shape = function(self, key)
+                return type(self.fields[key])
+            end,
+            extend = function(self, additionalFields)
+                -- implement a deep copy function for l.Object
+                local tmpCopy = deepCopy(self)
+                for key, value in pairs(additionalFields) do
+                    tmpCopy.fields[key] = value
+                end
+                return tmpCopy
+            end,
+            merge = function(self, object)
+                -- implement a deep copy function for l.Object
+                local tmpCopy = deepCopy(self)
+                for key, value in pairs(object.__fields) do
+                    tmpCopy.fields[key] = value
+                end
+                return tmpCopy
+            end,
+            pick = function(self, keys)
+                local tmpCopy = {}
+                if type(keys[1]) == 'boolean' then
+                    for key, value in pairs(keys) do
+                        tmpCopy[key] = self[key] or nil
+                    end
+                    return tmpCopy
+                else
+                    for _, value in ipairs(keys) do
+                        tmpCopy[value] = self[value] or nil
+                    end
+                    return tmpCopy
+                end
+            end,
+            omit = function(self, keys)
+                -- implement a deep copy function for l.Object
+                local tmpCopy = deepCopy(self)
+                if type(keys[1]) == 'boolean' then
+                    for key, value in pairs(keys) do
+                        tmpCopy[key] = nil
+                    end
+                    return tmpCopy
+                else
+                    for _, value in ipairs(keys) do
+                        tmpCopy[value] = nil
+                    end
+                    return tmpCopy
+                end
+            end,
+            --- This method will make the parser to NOT strip the unknown keys.
+            passthrough = function(self)
+                if self.__strict then return self
+                else
+                    self.__passthrough = true
+                    return self
+                end
+            end,
+
+            --- This method will make parser to throw an LError if there is an unknown key.
+            strict = function(self)
+                if self.__passthrough then return self
+                else
+                    self.__strict = true
+                    return self
+                end
+            end,
+
+            --- This method will make parser validate all unknown keys according to the schema provided.
+            catchall = function(self, schema)
+                self.__catchallSchema = schema
+                return self
+            end,
+
+            parse = function(self)
+            end
+        }
+        return obj
+    end
+})
