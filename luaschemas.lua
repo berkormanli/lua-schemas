@@ -1,5 +1,153 @@
 --local json = require "json"
 
+----------------------
+luaschemasObject = {
+    index = {},
+    optional = function(self)
+        self.__optional = true
+        return self
+    end
+}
+
+Array = {}
+Array.index = {}
+setmetatable(Array, {
+    __call = function(instance, elements)
+        local obj = setmetatable({
+            __type = "array",
+            __arrayType = type(elements[1]),
+            __data = {},
+            length = 0,
+            push = function(instance, ...)
+                local args = {...}
+                for i, j in ipairs(args) do
+                    table.insert(instance.__data, j)
+                    instance.length = instance.length + 1
+                end
+            end,
+            pop = function(instance)
+                if instance.length == 0 then return false end
+                local removed = table.remove(instance.__data)
+                instance.length = instance.length - 1
+                return removed
+            end,
+            shift = function(instance)
+                local removed = table.remove(instance.__data, 1)
+                instance.length = instance.length - 1
+                local removed
+            end,
+            unshift = function(instance, value)
+                table.insert(instance.__data, 1, value)
+                instance.length = instance.length + 1
+            end,
+            includes = function(instance, value)
+                for _, v in ipairs(instance.__data) do
+                    if v == value then
+                        return true
+                    end
+                end
+                return false
+            end,
+            join = function(instance, separator)
+                return table.concat(instance.__data, separator)
+            end,
+            fill = function(instance, newValue, startIndex, endIndex)
+                if (startIndex and startIndex < 1) or (endIndex and endIndex > instance.length) then return false end
+                if not startIndex then startIndex = 1 end
+                if not endIndex then endIndex = instance.length end
+                for i = startIndex, endIndex, 1 do
+                    instance.__data[i] = newValue
+                end
+            end,
+            map = function(instance, mapCB)
+                local resultArray = Array()
+                for i, v in ipairs(instance.__data) do
+                    resultArray:push(mapCB(v, i, instance.__data))
+                end
+                return resultArray
+            end,
+            filter = function(instance, predicateCB)
+                local resultArray = Array()
+                for i, v in ipairs(instance.__data) do
+                    if predicateCB(v, i, instance.__data) then
+                        resultArray:push(v)
+                    end
+                end
+                return resultArray
+            end,
+            find = function(predicateCB)
+                for i, v in ipairs(instance.__data) do
+                    if predicateCB(v, i, instance.__data) then
+                        return v
+                    end
+                end
+                return false
+            end,
+            every = function(predicateCB)
+                for i, v in ipairs(instance.__data) do
+                    if not predicateCB(v, i, instance.__data) then
+                        return false
+                    end
+                end
+                return true
+            end,
+            some = function(predicateCB)
+                for i, v in ipairs(instance.__data) do
+                    if predicateCB(v, i, instance.__data) then
+                        return true
+                    end
+                end
+                return false
+            end,
+            findIndex = function(predicateCB)
+                for i, v in ipairs(instance.__data) do
+                    if predicateCB(v, i, instance.__data) then
+                        return i
+                    end
+                end
+                return false
+            end,
+            findLast = function(predicateCB)
+                for i, v in ipairs(instance.__data) do
+                    if predicateCB(v, i, instance.__data) then
+                        return v
+                    end
+                end
+                return false
+            end,
+            findLastIndex = function(predicateCB)
+                for i = #instance.__data, 1, -1 do
+                    if predicateCB(v, i, instance.__data) then
+                        return i
+                    end
+                end
+                return false
+            end,
+            reduce = function(accumulator, initialValue)
+                local result = initialValue
+                for _, value in ipairs(instance.__data) do
+                    result = accumulator(result, value)
+                end
+                return result
+            end
+        }, {
+            __len = function(instance)
+                return instance.length
+            end,
+            __index = luaschemasObject
+        })
+        -- @desc It inserts all elements if it's a predefined Array.
+        if elements then
+            for i, j in ipairs(elements) do
+                table.insert(obj.__data, j)
+                obj.length = obj.length + 1
+            end
+        end
+        return obj
+    end,
+    __index = Array.index
+})
+----------------------
 l = {}
 
 local _type = type
@@ -30,7 +178,7 @@ l.string.index = {}
 setmetatable(l.string, {
     __call = function(instance, errMsgs)
         instance.__type = "string"
-        local obj = {
+        local obj = setmetatable({
             min = function(self, minLength, errMsg)
                 if type(minLength) == "number" and not self._min then
                     self._min = {
@@ -98,7 +246,9 @@ setmetatable(l.string, {
                 end
                 print("you did it mk")
             end
-        }
+        },{
+            __index = luaschemasObject
+        })
         if errMsgs then
             for errorType, errorMessage in pairs(errMsgs) do
                 obj[errorType] = errorMessage
@@ -114,12 +264,12 @@ local stringSchema = l.string({
 local stringSchemaMin = l.string():min(3)
 local stringSchemaMax = l.string():max(10)
 local stringSchemaBoth = l.string():min(3):max(10)
-local stringSchemaExact = l.string():length(11)
-
+local stringSchemaExact = l.string():length(11):optional()
+print(stringSchemaExact.__optional)
 local testString = "12345678901"
 local testNumber = 2
 
---stringSchemaExact:parse(testString)
+stringSchemaExact:parse(testString)
 --stringSchema:parse(testNumber)
 
 l.number = {}
@@ -253,7 +403,7 @@ local numberSchemaGt = l.number():finite()
 
 --numberSchemaMin:parse(3)
 --numberSchemaGte:parse(2)
-numberSchemaGt:parse(math.huge)
+--numberSchemaGt:parse(math.huge)
 
 l.Object = {}
 l.Object.index = {}
@@ -338,5 +488,12 @@ setmetatable(l.Object, {
             end
         }
         return obj
+    end
+})
+
+l.Array = {}
+l.Array.index = {}
+setmetatable(l.Array, {
+    __call = function(instance, errMsgs)
     end
 })
