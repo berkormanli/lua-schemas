@@ -9,9 +9,9 @@ luaschemasObject = {
     end
 }
 
-Array = {}
-Array.index = {}
-setmetatable(Array, {
+LSArray = {}
+LSArray.index = {}
+setmetatable(LSArray, {
     __call = function(instance, elements)
         local obj = setmetatable({
             __type = "array",
@@ -60,14 +60,14 @@ setmetatable(Array, {
                 end
             end,
             map = function(instance, mapCB)
-                local resultArray = Array()
+                local resultArray = LSArray()
                 for i, v in ipairs(instance.__data) do
                     resultArray:push(mapCB(v, i, instance.__data))
                 end
                 return resultArray
             end,
             filter = function(instance, predicateCB)
-                local resultArray = Array()
+                local resultArray = LSArray()
                 for i, v in ipairs(instance.__data) do
                     if predicateCB(v, i, instance.__data) then
                         resultArray:push(v)
@@ -145,14 +145,14 @@ setmetatable(Array, {
         end
         return obj
     end,
-    __index = Array.index
+    __index = LSArray.index
 })
 ----------------------
 l = {}
 
 local _type = type
 -- Primitive types are: nil, boolean, number, string, userdata, function, thread, and table
-l.type = function(arg)
+type = function(arg)
     if _type(arg) ~= "table" then
         return _type(arg)
     else
@@ -177,8 +177,9 @@ l.string = {}
 l.string.index = {}
 setmetatable(l.string, {
     __call = function(instance, errMsgs)
-        instance.__type = "string"
+        --instance.__type = "string"
         local obj = setmetatable({
+            __type = "string",
             min = function(self, minLength, errMsg)
                 if type(minLength) == "number" and not self._min then
                     self._min = {
@@ -247,7 +248,8 @@ setmetatable(l.string, {
                 print("you did it mk")
             end
         },{
-            __index = luaschemasObject
+            __index = luaschemasObject,
+            __pairs = instance.__ipairs
         })
         if errMsgs then
             for errorType, errorMessage in pairs(errMsgs) do
@@ -265,18 +267,16 @@ local stringSchemaMin = l.string():min(3)
 local stringSchemaMax = l.string():max(10)
 local stringSchemaBoth = l.string():min(3):max(10)
 local stringSchemaExact = l.string():length(11):optional()
-print(stringSchemaExact.__optional)
 local testString = "12345678901"
 local testNumber = 2
 
-stringSchemaExact:parse(testString)
+--stringSchemaExact:parse(testString)
 --stringSchema:parse(testNumber)
 
 l.number = {}
 l.number.index = {}
 setmetatable(l.number, {
     __call = function(instance, errMsgs)
-        instance.__type = "number"
         local minFunc = function(obj, minValue, errMsg)
             if type(minValue) == "number" and not obj._min then
                 obj._min = {
@@ -296,6 +296,7 @@ setmetatable(l.number, {
             return obj
         end
         local obj = {
+            __type = "number",
             min = minFunc,
             gte = minFunc,
             gt = function(self, minValue, errMsg)
@@ -494,6 +495,105 @@ setmetatable(l.Object, {
 l.Array = {}
 l.Array.index = {}
 setmetatable(l.Array, {
-    __call = function(instance, errMsgs)
+    __call = function(instance, arrayType)
+        local obj = {
+            __type = "array",
+            __fieldType = type(arrayType),
+            element = type(arrayType),
+            nonempty = function(self, errMsg)
+                if type(errMsg) == 'table' then
+                    self._nonempty = {
+                        message = errMsg.message
+                    }
+                elseif type(errMsg) == 'string' then
+                    self._nonempty = errMsg
+                else
+                    self._nonempty = true
+                end
+                return self
+            end,
+            min = function(self, minLength, errMsg)
+                if type(minLength) == "number" and not self._min then
+                    self._min = {
+                        minLength = minLength,
+                        message = errMsg or "Must contain "..minLength.." or more items"
+                    }
+                end
+                return self
+            end,
+            max = function(self, maxLength, errMsg)
+                if type(maxLength) == "number" and not self._max then
+                    self._max = {
+                        maxLength = maxLength,
+                        message = errMsg or "Must contain "..maxLength.." or less items"
+                    }
+                end
+                return self
+            end,
+            length = function(self, exactLength, errMsg)
+                if type(exactLength) == "number" and not self._exactLength then
+                    self._exactLength = {
+                        exactLength = exactLength,
+                        message = errMsg or "Must contain exactly "..exactLength.." items"
+                    }
+                end
+                return self
+            end,
+            parse = function(self, argToBeTested, errMsgs)
+                local count = 0
+                local isHashMap = false
+                for _idx, _value in pairs(argToBeTested) do
+                    if type(_idx) == 'string' then
+                        isHashMap = true
+                        return
+                    end
+                    count = count + 1
+                end
+                if isHashMap then
+                    if self._errMsgs then
+                        error(self._errMsgs.hashMapError)
+                    else
+                        error("Arg should be an array but fed Hash Map")
+                    end
+                end
+                if count == 0 and self._nonempty then
+                    if type(self._nonempty) == 'table' then
+                        error(self._nonempty.message)
+                    elseif type(self._nonempty) == 'string' then
+                        error(self._nonempty)
+                    else
+                        error("Array should not be empty")
+                    end
+                end
+                if self._min and count < self._min.minLength then
+                    if self._min.message then
+                        error(self._min.message)
+                    else
+                        error("Variable is not long enough")
+                    end
+                end
+                if self._max and count > self._max.maxLength then
+                    if self._max.message then
+                        error(self._max.message)
+                    else
+                        error("Variable is not short enough")
+                    end
+                end
+                if self._exactLength and count ~= self._exactLength.exactLength then
+                    if self._exactLength.message then
+                        error(self._exactLength.message)
+                    else
+                        error("Variable is not exactly long as defined")
+                    end
+                end
+            end
+        }
+        return obj
     end
 })
+
+local minThreeArray = l.Array(l.string()):min(3)
+local nonEmptyArray = l.Array(l.string()):nonempty()
+minThreeArray:parse({"a", "b", "c", "d"})
+minThreeArray:parse({"a", "b", "c"})
+print(nonEmptyArray.element)
