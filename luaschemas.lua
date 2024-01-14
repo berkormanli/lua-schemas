@@ -150,7 +150,14 @@ setmetatable(LSArray, {
 ----------------------
 l = {}
 
+---@alias LType string
+
+---@alias LError string
+
 local _type = type
+
+---@param arg any
+---@return LType
 -- Primitive types are: nil, boolean, number, string, userdata, function, thread, and table
 type = function(arg)
     if _type(arg) ~= "table" then
@@ -161,6 +168,7 @@ type = function(arg)
 end
 
 local _error = error
+---@param errMsg string
 error = function(errMsg)
     local currentLineErr = debug.getinfo(3)
     local infosFunc = debug.getinfo(2)
@@ -173,22 +181,48 @@ error = function(errMsg)
     ))
 end
 
+---@class LString
+---@field private __type string
+---@field _min table
+---@field _max table
+---@field _length table
+---@field _email table
+---@field min function
+---@field max function
+---@field length function
+---@field email function
+---@field parse function
+---@field wrongTypeError string
 l.string = {}
 l.string.index = {}
 setmetatable(l.string, {
+    ---LString constuctor
+    ---@param instance any
+    ---@param errMsgs table<LError, string>
+    ---@return LString
     __call = function(instance, errMsgs)
-        --instance.__type = "string"
+        ---@class LString
         local obj = setmetatable({
             __type = "string",
+            ---Set string minimum length.
+            ---@param self LString
+            ---@param minLength number
+            ---@param errMsg LError
+            ---@return LString
             min = function(self, minLength, errMsg)
                 if type(minLength) == "number" and not self._min then
                     self._min = {
                         minLength = minLength,
-                        message = errMsg or "Must be "..minLength.." or more characters long"
+                        message = errMsg and errMsg or "Must be "..minLength.." or more characters long"
                     }
                 end
                 return self
             end,
+            ---Set string maximum length.
+            ---@param self LString
+            ---@param maxLength number
+            ---@param errMsg LError
+            ---@return LString
             max = function(self, maxLength, errMsg)
                 if type(maxLength) == "number" and not self._max then
                     self._max = {
@@ -198,6 +232,11 @@ setmetatable(l.string, {
                 end
                 return self
             end,
+            ---Set string exact length.
+            ---@param self LString
+            ---@param exactLength number
+            ---@param errMsg LError
+            ---@return LString
             length = function(self, exactLength, errMsg)
                 if type(exactLength) == "number" and not self._length then
                     self._length = {
@@ -207,6 +246,10 @@ setmetatable(l.string, {
                 end
                 return self
             end,
+            ---Set string as email.
+            ---@param self LString
+            ---@param errMsg LError
+            ---@return LString
             email = function(self, errMsg)
                 if not self._email then
                     self._email = {
@@ -216,6 +259,9 @@ setmetatable(l.string, {
                 end
                 return self
             end,
+            ---Parse the argument to check if it suits the string schema.
+            ---@param self LString
+            ---@param argToBeTested any
             parse = function(self, argToBeTested)
                 if type(argToBeTested) ~= "string" then
                     if self.wrongTypeError then
@@ -271,6 +317,7 @@ local testString = "12345678901"
 local testNumber = 2
 
 --stringSchemaExact:parse(testString)
+stringSchemaMin:parse(testString)
 --stringSchema:parse(testNumber)
 
 l.number = {}
