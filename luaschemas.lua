@@ -150,10 +150,6 @@ setmetatable(LSArray, {
 ----------------------
 l = {}
 
----@alias LType string
-
----@alias LError string
-
 local _type = type
 
 ---@param arg any
@@ -181,7 +177,7 @@ error = function(errMsg)
     ))
 end
 
----@class LString
+---@class l.string
 ---@field private __type string
 ---@field _min table
 ---@field _max table
@@ -199,16 +195,15 @@ setmetatable(l.string, {
     ---LString constuctor
     ---@param instance any
     ---@param errMsgs table<LError, string>
-    ---@return LString
+    ---@return l.string
     __call = function(instance, errMsgs)
-        ---@class LString
         local obj = setmetatable({
             __type = "string",
             ---Set string minimum length.
-            ---@param self LString
+            ---@param self l.string
             ---@param minLength number
             ---@param errMsg LError
-            ---@return LString
+            ---@return l.string
             min = function(self, minLength, errMsg)
                 if type(minLength) == "number" and not self._min then
                     self._min = {
@@ -219,10 +214,10 @@ setmetatable(l.string, {
                 return self
             end,
             ---Set string maximum length.
-            ---@param self LString
+            ---@param self l.string
             ---@param maxLength number
             ---@param errMsg LError
-            ---@return LString
+            ---@return l.string
             max = function(self, maxLength, errMsg)
                 if type(maxLength) == "number" and not self._max then
                     self._max = {
@@ -233,10 +228,10 @@ setmetatable(l.string, {
                 return self
             end,
             ---Set string exact length.
-            ---@param self LString
+            ---@param self l.string
             ---@param exactLength number
             ---@param errMsg LError
-            ---@return LString
+            ---@return l.string
             length = function(self, exactLength, errMsg)
                 if type(exactLength) == "number" and not self._length then
                     self._length = {
@@ -247,9 +242,9 @@ setmetatable(l.string, {
                 return self
             end,
             ---Set string as email.
-            ---@param self LString
+            ---@param self l.string
             ---@param errMsg LError
-            ---@return LString
+            ---@return l.string
             email = function(self, errMsg)
                 if not self._email then
                     self._email = {
@@ -260,38 +255,51 @@ setmetatable(l.string, {
                 return self
             end,
             ---Parse the argument to check if it suits the string schema.
-            ---@param self LString
+            ---@param self l.string
             ---@param argToBeTested any
+            ---@return boolean success
+            ---@return LString | LError returnVal
             parse = function(self, argToBeTested)
                 if type(argToBeTested) ~= "string" then
                     if self.wrongTypeError then
                         error(self.wrongTypeError)
+                        return false, self.wrongTypeError
                     else
                         error("Variable is not a string")
+                        return false, 'Variable is not a string'
                     end
                 end
                 if self._min and string.len(argToBeTested) < self._min.minLength then
                     if self._min.message then
                         error(self._min.message)
+                        return false, self._min.message
                     else
                         error("Variable is not long enough")
+                        return false, 'Variable is not long enough'
                     end
                 end
                 if self._max and string.len(argToBeTested) > self._max.maxLength then
                     if self._max.message then
                         error(self._max.message)
+                        return false, self._max.message
                     else
                         error("Variable is not short enough")
+                        return false, 'Variable is not short enough'
                     end
                 end
                 if self._length and string.len(argToBeTested) ~= self._length.exactLength then
                     if self._length.message then
                         error(self._length.message)
+                        return false, self._length.message
                     else
                         error("Variable is not exactly long as defined")
+                        return false, 'Variable is not exactly long as defined'
                     end
                 end
-                print("you did it mk")
+                return true, {
+                    __type = 'string',
+                    __value = argToBeTested
+                }
             end
         },{
             __index = luaschemasObject,
@@ -320,6 +328,34 @@ local testNumber = 2
 stringSchemaMin:parse(testString)
 --stringSchema:parse(testNumber)
 
+---@class l.number
+---@field private __type string
+---@field _min table
+---@field _minNE table
+---@field _max table
+---@field _maxNE table
+---@field _integer LError
+---@field _positive LError
+---@field _nonnegative LError
+---@field _negative LError
+---@field _nonpositive LError
+---@field _multipleOf table
+---@field _finite LError
+---@field min function
+---@field gt function
+---@field gte function
+---@field max function
+---@field lt function
+---@field lte function
+---@field int function
+---@field positive function
+---@field nonnegative function
+---@field negative function
+---@field nonpositive function
+---@field multipleOf function
+---@field finite function
+---@field parse function
+---@field wrongTypeError string
 l.number = {}
 l.number.index = {}
 setmetatable(l.number, {
@@ -328,7 +364,7 @@ setmetatable(l.number, {
             if type(minValue) == "number" and not obj._min then
                 obj._min = {
                     minValue = minValue,
-                    message = errMsg or "Must be greater than or equal to "..minValue
+                    message = errMsg and errMsg or "Must be greater than or equal to "..minValue
                 }
             end
             return obj
@@ -337,12 +373,12 @@ setmetatable(l.number, {
             if type(maxValue) == "number" and not obj._max then
                 obj._max = {
                     maxValue = maxValue,
-                    message = errMsg or "Must be less than or equal to "..maxValue
+                    message = errMsg and errMsg or "Must be less than or equal to "..maxValue
                 }
             end
             return obj
         end
-        local obj = {
+        local obj = setmetatable({
             __type = "number",
             min = minFunc,
             gte = minFunc,
@@ -350,7 +386,7 @@ setmetatable(l.number, {
                 if type(minValue) == "number" and not self._minNE then
                     self._minNE = {
                         minValue = minValue,
-                        message = errMsg or "Must be greater than "..minValue
+                        message = errMsg and errMsg or "Must be greater than "..minValue
                     }
                 end
                 return self
@@ -361,81 +397,124 @@ setmetatable(l.number, {
                 if type(maxValue) == "number" and not self._maxNE then
                     self._maxNE = {
                         maxValue = maxValue,
-                        message = errMsg or "Must be less than "..maxValue
+                        message = errMsg and errMsg or "Must be less than "..maxValue
                     }
                 end
                 return self
             end,
 
             int = function(self, errMsg)
-                self._integer = errMsg or "Must be an integer"
+                self._integer = errMsg and errMsg or "Must be an integer"
                 return self
             end,
 
             positive = function(self, errMsg)
                 if not self._negative and not self._nonpositive then
-                    self._positive = errMsg or "Must be greater than 0"
+                    self._positive = errMsg and errMsg or "Must be greater than 0"
                 end
                 return self
             end,
             nonnegative = function(self, errMsg)
                 if not self._negative and not self._nonpositive and not self._positive then
-                    self._nonnegative = errMsg or "Must be greater than or equal to 0"
+                    self._nonnegative = errMsg and errMsg or "Must be greater than or equal to 0"
                 end
                 return self
             end,
             negative = function(self, errMsg)
                 if not self._positive and not self._nonnegative then
-                    self._negative = errMsg or "Must be less than 0"
+                    self._negative = errMsg and errMsg or "Must be less than 0"
                 end
                 return self
             end,
             nonpositive = function(self, errMsg)
                 if not self._positive and not self._nonnegative and not self._negative then
-                    self._nonpositive = errMsg or "Must be less than or equal to 0"
+                    self._nonpositive = errMsg and errMsg or "Must be less than or equal to 0"
                 end
                 return self
             end,
 
             multipleOf = function(self, modulus, errMsg)
-                self._multipleOf = errMsg or "Must be a multiple of "..modulus
+                self._multipleOf = {
+                    multipleOf = modulus,
+                    message = errMsg and errMsg or "Must be a multiple of "..modulus
+                }
                 return self
             end,
 
             finite = function(self, errMsg)
-                self._finite = errMsg or "Must be between math.huge and -math.huge"
+                self._finite = errMsg and errMsg or "Must be between math.huge and -math.huge"
                 return self
             end,
 
+            ---comment
+            ---@param self l.number
+            ---@param argToBeTested any
+            ---@return boolean success
+            ---@return LInteger | LNumber | LError
             parse = function(self, argToBeTested)
                 if type(argToBeTested) ~= "number" then
                     if self.wrongTypeError then
                         error(self.wrongTypeError)
+                        return false, self.wrongTypeError
                     else
                         error("Variable is not a number")
+                        return false, 'Variable is not a number'
                     end
                 end
                 if self._min and argToBeTested < self._min.minValue then
                     if self._min.message then
                         error(self._min.message)
+                        return false, self._min.message
                     else
                         error("Variable is not greater than or equal to "..self._min.minValue)
+                        return false, 'Variable is not greater than or equal to '..self._min.minValue
                     end
                 end
                 if self._minNE and argToBeTested <= self._minNE.minValue then
                     if self._minNE.message then
                         error(self._minNE.message)
+                        return false, self._minNE.message
                     else
-                        error("Variable is not greater than or equal to "..self._minNE.minValue)
+                        error("Variable is not greater than "..self._minNE.minValue)
+                        return false, 'Variable is not greater than '..self._minNE.message
                     end
                 end
-
-
+                if self._max and argToBeTested < self._max.maxValue then
+                    if self._max.message then
+                        error(self._max.message)
+                        return false, self._max.message
+                    else
+                        error("Variable is not lower than or equal to "..self._max.maxValue)
+                        return false, 'Variable is not lower than or equal to '..self._max.maxValue
+                    end
+                end
+                if self._maxNE and argToBeTested <= self._maxNE.maxValue then
+                    if self._maxNE.message then
+                        error(self._maxNE.message)
+                        return false, self._maxNE.message
+                    else
+                        error("Variable is not lower than "..self._maxNE.maxValue)
+                        return false, 'Variable is not lower than '..self._maxNE.message
+                    end
+                end
+                if self._integer and tostring(argToBeTested):find('.') then
+                    error(self._integer)
+                    return false, self._integer
+                end
                 if self._finite and not (argToBeTested < math.huge and argToBeTested > -math.huge) then
                     error(self._finite)
+                    return false, self._finite
                 end
+
+                return true, {
+                    __type = self._integer and 'integer' or 'number',
+                    __value = argToBeTested
+                }
             end
-        }
+        },{
+            __index = luaschemasObject,
+            --__pairs = instance.__ipairs
+        })
         if errMsgs then
             for errorType, errorMessage in pairs(errMsgs) do
                 obj[errorType] = errorMessage
@@ -639,8 +718,48 @@ setmetatable(l.Array, {
     end
 })
 
-local minThreeArray = l.Array(l.string()):min(3)
+--[[local minThreeArray = l.Array(l.string()):min(3)
 local nonEmptyArray = l.Array(l.string()):nonempty()
 minThreeArray:parse({"a", "b", "c", "d"})
 minThreeArray:parse({"a", "b", "c"})
-print(nonEmptyArray.element)
+print(nonEmptyArray.element)]]
+
+---@class l.boolean
+---@field __type string
+---@field parse function
+---@field wrongTypeError string
+l.boolean = {}
+l.boolean.index = {}
+setmetatable(l.boolean, {
+    __call = function (instance, errMsgs)
+        local obj = {
+            __type = 'boolean',
+            ---comment
+            ---@param self l.boolean
+            ---@param argToBeTested any
+            ---@return boolean success
+            ---@return LBoolean | LError returnVal
+            parse = function(self, argToBeTested)
+                if type(argToBeTested) ~= 'boolean' then
+                    if self.wrongTypeError then
+                        error(self.wrongTypeError)
+                        return false, self.wrongTypeError
+                    else
+                        error("Variable is not a boolean")
+                        return false, 'Variable is not a boolean'
+                    end
+                end
+                return true, {
+                    __type = 'boolean',
+                    __value = argToBeTested
+                }
+            end
+        }
+        if errMsgs then
+            for errorType, errorMessage in pairs(errMsgs) do
+                obj[errorType] = errorMessage
+            end
+        end
+        return obj
+    end
+})
